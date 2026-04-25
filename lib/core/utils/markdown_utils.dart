@@ -152,7 +152,9 @@ class MarkdownUtils {
   }
 
   static List<MDBlock> parseToBlocks(String markdown) {
-    final lines = markdown.split('\n');
+    // Normalize line endings: CRLF and lone CR → LF
+    final normalized = markdown.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final lines = normalized.split('\n');
     final blocks = <MDBlock>[];
     int idCounter = 0;
     String id() => 'b${++idCounter}';
@@ -162,13 +164,21 @@ class MarkdownUtils {
       final line = lines[i];
 
       if (line.trimLeft().startsWith('```')) {
+        // Extract language tag: ```python → 'python'
+        final fenceContent = line.trimLeft().substring(3).trim();
+        final language = fenceContent.isNotEmpty ? fenceContent : null;
         final codeLines = <String>[];
         i++;
         while (i < lines.length && !lines[i].trimLeft().startsWith('```')) {
           codeLines.add(lines[i]);
           i++;
         }
-        blocks.add(MDBlock(id: id(), type: MDBlockType.code, content: codeLines.join('\n')));
+        blocks.add(MDBlock(
+          id: id(),
+          type: MDBlockType.code,
+          content: codeLines.join('\n'),
+          language: language,
+        ));
         i++;
         continue;
       }
@@ -195,16 +205,48 @@ class MarkdownUtils {
         continue;
       }
 
-      final todoMatch = RegExp(r'^- \[([ x])] ').matchAsPrefix(line);
+      final todoMatch = RegExp(r'^- \[([ xX])] ').matchAsPrefix(line);
       if (todoMatch != null) {
-        blocks.add(MDBlock(id: id(), type: MDBlockType.todo, content: line.substring(todoMatch.end)));
+        final isChecked = todoMatch.group(1)!.toLowerCase() == 'x';
+        blocks.add(MDBlock(
+          id: id(),
+          type: MDBlockType.todo,
+          content: line.substring(todoMatch.end),
+          isChecked: isChecked,
+        ));
         i++;
         continue;
       }
 
       if (line.startsWith('> ')) {
-        blocks.add(MDBlock(id: id(), type: MDBlockType.quote, content: line.substring(2)));
+        // Merge consecutive quote lines into one block
+        final quoteLines = <String>[line.substring(2)];
         i++;
+        while (i < lines.length && lines[i].startsWith('> ')) {
+          quoteLines.add(lines[i].substring(2));
+          i++;
+        }
+        blocks.add(MDBlock(
+          id: id(),
+          type: MDBlockType.quote,
+          content: quoteLines.join('\n'),
+        ));
+        continue;
+      }
+
+      // Table detection — contiguous lines starting with |
+      if (line.trimLeft().startsWith('|')) {
+        final tableLines = <String>[line];
+        i++;
+        while (i < lines.length && lines[i].trimLeft().startsWith('|')) {
+          tableLines.add(lines[i]);
+          i++;
+        }
+        blocks.add(MDBlock(
+          id: id(),
+          type: MDBlockType.table,
+          content: tableLines.join('\n'),
+        ));
         continue;
       }
 
@@ -217,6 +259,18 @@ class MarkdownUtils {
       final numMatch = RegExp(r'^\d+\. ').matchAsPrefix(line);
       if (numMatch != null) {
         blocks.add(MDBlock(id: id(), type: MDBlockType.numberedList, content: line.substring(numMatch.end)));
+        i++;
+        continue;
+      }
+
+      // Image block detection — line is primarily a markdown image
+      final imageMatch = RegExp(r'^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$').matchAsPrefix(line);
+      if (imageMatch != null) {
+        blocks.add(MDBlock(
+          id: id(),
+          type: MDBlockType.image,
+          content: line.trim(),
+        ));
         i++;
         continue;
       }
@@ -244,17 +298,24 @@ class MarkdownUtils {
         case MDBlockType.heading3:
           return '### ${block.content}';
         case MDBlockType.code:
-          return '```\n${block.content}\n```';
+          final lang = block.language ?? '';
+          return lang.isNotEmpty ? '```$lang\n${block.content}\n```' : '```\n${block.content}\n```';
         case MDBlockType.quote:
           return '> ${block.content}';
         case MDBlockType.bulletList:
           return '- ${block.content}';
         case MDBlockType.numberedList:
           return '1. ${block.content}';
-        case MDBlockType.todo:
-          return '- [ ] ${block.content}';
+        case MDBlockType.todo: {
+          final checkbox = block.isChecked ? '[x]' : '[ ]';
+          return '- $checkbox ${block.content}';
+        }
         case MDBlockType.divider:
           return '---';
+        case MDBlockType.table:
+          return block.content;
+        case MDBlockType.image:
+          return block.content;
       }
     }).join('\n');
   }

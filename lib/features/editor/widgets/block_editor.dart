@@ -16,7 +16,7 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, FocusNode> _focusNodes = {};
   int _focusedIndex = -1;
-  bool _processingNewline = false;
+  int _newlineGuard = 0;
 
   TextEditingController? get focusedController {
     if (_focusedIndex < 0) return null;
@@ -61,22 +61,29 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
   }
 
   void _onTextChanged(int index, String text, MDBlock block) {
-    if (_processingNewline) return;
+    if (_newlineGuard > 0) return;
     if (text.contains('\n')) {
-      _processingNewline = true;
+      _newlineGuard++;
       final parts = text.split('\n');
       final before = parts.first;
       final after = parts.sublist(1).join('\n');
 
       ref.read(editorProvider.notifier).updateBlockContent(index, before);
-      ref.read(editorProvider.notifier).insertBlock(index + 1, content: after);
+      if (after.isNotEmpty) {
+        ref.read(editorProvider.notifier).insertBlock(index + 1, content: after);
+      }
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final blocks = ref.read(editorProvider).blocks;
         if (index + 1 < blocks.length) {
-          _focusNodes[blocks[index + 1].id]?.requestFocus();
+          final node = _focusNodes[blocks[index + 1].id];
+          if (node != null) {
+            node.requestFocus();
+            final ctrl = _controllers[blocks[index + 1].id];
+            ctrl?.selection = TextSelection.collapsed(offset: 0);
+          }
         }
-        _processingNewline = false;
+        _newlineGuard--;
       });
     } else {
       ref.read(editorProvider.notifier).updateBlockContent(index, text);
@@ -180,6 +187,9 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
             onArrowUp: () => _onArrowUp(index),
             onArrowDown: () => _onArrowDown(index),
             onTypeTap: () => _showTypeSelector(context, index),
+            onToggleCheckbox: block.type == MDBlockType.todo
+                ? () => ref.read(editorProvider.notifier).toggleTodoChecked(index)
+                : null,
           );
         },
       ),
@@ -198,6 +208,7 @@ class _BlockWidget extends StatelessWidget {
   final VoidCallback onArrowUp;
   final VoidCallback onArrowDown;
   final VoidCallback onTypeTap;
+  final VoidCallback? onToggleCheckbox;
 
   const _BlockWidget({
     required this.block,
@@ -210,6 +221,7 @@ class _BlockWidget extends StatelessWidget {
     required this.onArrowUp,
     required this.onArrowDown,
     required this.onTypeTap,
+    this.onToggleCheckbox,
   });
 
   @override
@@ -285,6 +297,10 @@ class _BlockWidget extends StatelessWidget {
         return Icons.check_box_outlined;
       case MDBlockType.divider:
         return Icons.horizontal_rule;
+      case MDBlockType.table:
+        return Icons.table_chart_outlined;
+      case MDBlockType.image:
+        return Icons.image_outlined;
     }
   }
 
@@ -356,6 +372,10 @@ class _BlockWidget extends StatelessWidget {
         return '列表项...';
       case MDBlockType.todo:
         return '待办事项...';
+      case MDBlockType.table:
+        return '编辑表格';
+      case MDBlockType.image:
+        return '图片描述 (可选)';
       default:
         return null;
     }
@@ -373,7 +393,25 @@ class _BlockWidget extends StatelessWidget {
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: _buildTextField(context, colorScheme),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (block.language != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 12, top: 6),
+                child: Text(
+                  block.language!,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            _buildTextField(context, colorScheme),
+          ],
+        ),
       );
     }
 
@@ -390,6 +428,18 @@ class _BlockWidget extends StatelessWidget {
       );
     }
 
+    if (block.type == MDBlockType.table) {
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: _buildTextField(context, colorScheme),
+      );
+    }
+
     return _buildTextField(context, colorScheme);
   }
 
@@ -397,17 +447,22 @@ class _BlockWidget extends StatelessWidget {
     return Row(
       children: [
         GestureDetector(
-          onTap: () {
-            // Toggle todo state - for now just a visual change
-          },
+          onTap: onToggleCheckbox,
           child: Container(
             margin: const EdgeInsets.only(top: 10, right: 8),
             width: 22,
             height: 22,
             decoration: BoxDecoration(
-              border: Border.all(color: colorScheme.outline, width: 2),
+              color: block.isChecked ? colorScheme.primary : Colors.transparent,
+              border: Border.all(
+                color: block.isChecked ? colorScheme.primary : colorScheme.outline,
+                width: 2,
+              ),
               borderRadius: BorderRadius.circular(4),
             ),
+            child: block.isChecked
+                ? Icon(Icons.check, size: 16, color: colorScheme.onPrimary)
+                : null,
           ),
         ),
         Expanded(
@@ -437,13 +492,7 @@ class _BlockWidget extends StatelessWidget {
           fontWeight: FontWeight.w300,
         ),
       ),
-      onChanged: (text) {
-        if (text.endsWith('\n')) {
-          onChanged(text);
-        } else {
-          onChanged(text);
-        }
-      },
+      onChanged: onChanged,
     );
   }
 }
@@ -497,6 +546,8 @@ class _BlockTypeSelector extends StatelessWidget {
       (MDBlockType.numberedList, Icons.format_list_numbered, '有序列表'),
       (MDBlockType.todo, Icons.check_box_outlined, '待办'),
       (MDBlockType.code, Icons.code, '代码'),
+      (MDBlockType.table, Icons.table_chart_outlined, '表格'),
+      (MDBlockType.image, Icons.image_outlined, '图片'),
       (MDBlockType.divider, Icons.horizontal_rule, '分隔线'),
     ];
 

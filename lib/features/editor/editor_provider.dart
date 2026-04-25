@@ -10,12 +10,14 @@ class EditorState {
   final List<MDBlock> blocks;
   final String originalContent;
   final bool isPreviewVisible;
+  final String? errorMessage;
 
   const EditorState({
     this.filePath = '',
     this.blocks = const [],
     this.originalContent = '',
     this.isPreviewVisible = false,
+    this.errorMessage,
   });
 
   String get content => MarkdownUtils.serializeBlocks(blocks);
@@ -26,12 +28,15 @@ class EditorState {
     List<MDBlock>? blocks,
     String? originalContent,
     bool? isPreviewVisible,
+    String? errorMessage,
+    bool clearError = false,
   }) {
     return EditorState(
       filePath: filePath ?? this.filePath,
       blocks: blocks ?? this.blocks,
       originalContent: originalContent ?? this.originalContent,
       isPreviewVisible: isPreviewVisible ?? this.isPreviewVisible,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }
@@ -58,8 +63,14 @@ class EditorNotifier extends StateNotifier<EditorState> {
         blocks: blocks,
         originalContent: content,
       );
-    } catch (_) {
-      state = const EditorState();
+    } catch (e) {
+      state = state.copyWith(errorMessage: '无法加载文件: $e');
+    }
+  }
+
+  void clearError() {
+    if (state.errorMessage != null) {
+      state = state.copyWith(clearError: true);
     }
   }
 
@@ -101,6 +112,16 @@ class EditorNotifier extends StateNotifier<EditorState> {
     final newBlocks = [...state.blocks];
     newBlocks[index] = newBlocks[index].copyWith(type: type);
     state = state.copyWith(blocks: newBlocks);
+  }
+
+  void toggleTodoChecked(int index) {
+    if (index >= state.blocks.length) return;
+    final block = state.blocks[index];
+    if (block.type != MDBlockType.todo) return;
+    final newBlocks = [...state.blocks];
+    newBlocks[index] = block.copyWith(isChecked: !block.isChecked);
+    state = state.copyWith(blocks: newBlocks);
+    _scheduleAutoSave();
   }
 
   void togglePreview() {
