@@ -9,6 +9,7 @@ import 'editor_provider.dart';
 import 'widgets/markdown_toolbar.dart';
 import 'widgets/preview_pane.dart';
 import 'widgets/editor_scaffold.dart';
+import 'widgets/block_editor.dart';
 
 class EditorScreen extends ConsumerStatefulWidget {
   final String? filePath;
@@ -26,14 +27,13 @@ class EditorScreen extends ConsumerStatefulWidget {
 
 class _EditorScreenState extends ConsumerState<EditorScreen>
     with SingleTickerProviderStateMixin {
-  late TextEditingController _textController;
+  final _blockEditorKey = GlobalKey<BlockEditorState>();
   late AnimationController _previewAnimController;
   bool _isPreviewVisible = false;
 
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController();
     _previewAnimController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -50,7 +50,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
 
   @override
   void dispose() {
-    _textController.dispose();
     _previewAnimController.dispose();
     super.dispose();
   }
@@ -61,7 +60,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
     if (state.filePath.isNotEmpty) {
       return notifier.saveFile();
     }
-    // 新文件：将内容作为 bytes 传给 FilePicker，由它处理平台特定的写入（Android content:// URI）
     try {
       final bytes = utf8.encode(state.content);
       final path = await FilePicker.platform.saveFile(
@@ -85,7 +83,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
     } else {
       _previewAnimController.reverse();
     }
-    ref.read(editorProvider.notifier).togglePreview();
   }
 
   @override
@@ -95,6 +92,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
     final colorScheme = Theme.of(context).colorScheme;
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+
+    final focusedController = _blockEditorKey.currentState?.focusedController;
 
     return Scaffold(
       appBar: AppBar(
@@ -172,14 +171,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
         ],
       ),
       body: EditorScaffold(
-        editor: _EditorBody(controller: _textController),
+        editor: BlockEditor(key: _blockEditorKey),
         preview: const PreviewPane(),
-        toolbar: MarkdownToolbar(
-          controller: _textController,
-          onFormat: () {
-            ref.read(editorProvider.notifier).updateContent(_textController.text);
-          },
-        ),
+        toolbar: focusedController != null
+            ? MarkdownToolbar(
+                controller: focusedController,
+                onFormat: () {
+                  if (focusedController.text.isNotEmpty) {}
+                },
+              )
+            : const SizedBox.shrink(),
         showPreview: _isPreviewVisible,
         isLandscape: isLandscape,
       ),
@@ -213,53 +214,6 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
             child: const Text('保存'),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _EditorBody extends ConsumerWidget {
-  final TextEditingController controller;
-
-  const _EditorBody({required this.controller});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final content = ref.watch(editorProvider.select((s) => s.content));
-    final colorScheme = Theme.of(context).colorScheme;
-
-    if (controller.text != content) {
-      controller.text = content;
-      controller.selection = TextSelection.collapsed(offset: content.length);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: TextField(
-        controller: controller,
-        maxLines: null,
-        expands: true,
-        textAlignVertical: TextAlignVertical.top,
-        keyboardAppearance: Theme.of(context).brightness == Brightness.dark
-            ? Brightness.dark
-            : Brightness.light,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              fontFamily: 'monospace',
-              height: 1.7,
-              letterSpacing: 0.3,
-            ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          hintText: '开始写作...',
-          hintStyle: TextStyle(
-            color: colorScheme.outline.withValues(alpha: 0.6),
-            fontWeight: FontWeight.w300,
-          ),
-          contentPadding: const EdgeInsets.only(top: 8, bottom: 8),
-        ),
-        onChanged: (text) {
-          ref.read(editorProvider.notifier).updateContent(text);
-        },
       ),
     );
   }

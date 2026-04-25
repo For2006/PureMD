@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../models/md_block.dart';
+
 class MarkdownUtils {
   MarkdownUtils._();
 
@@ -147,5 +149,113 @@ class MarkdownUtils {
     final prefix = needsNewline ? '\n' : '';
     final table = '$prefix| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |';
     wrapSelection(controller, prefix: table);
+  }
+
+  static List<MDBlock> parseToBlocks(String markdown) {
+    final lines = markdown.split('\n');
+    final blocks = <MDBlock>[];
+    int idCounter = 0;
+    String id() => 'b${++idCounter}';
+
+    int i = 0;
+    while (i < lines.length) {
+      final line = lines[i];
+
+      if (line.trimLeft().startsWith('```')) {
+        final codeLines = <String>[];
+        i++;
+        while (i < lines.length && !lines[i].trimLeft().startsWith('```')) {
+          codeLines.add(lines[i]);
+          i++;
+        }
+        blocks.add(MDBlock(id: id(), type: MDBlockType.code, content: codeLines.join('\n')));
+        i++;
+        continue;
+      }
+
+      if (line.trim() == '---' || line.trim() == '***' || line.trim() == '___') {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.divider));
+        i++;
+        continue;
+      }
+
+      if (line.startsWith('### ')) {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.heading3, content: line.substring(4)));
+        i++;
+        continue;
+      }
+      if (line.startsWith('## ')) {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.heading2, content: line.substring(3)));
+        i++;
+        continue;
+      }
+      if (line.startsWith('# ')) {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.heading1, content: line.substring(2)));
+        i++;
+        continue;
+      }
+
+      final todoMatch = RegExp(r'^- \[([ x])] ').matchAsPrefix(line);
+      if (todoMatch != null) {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.todo, content: line.substring(todoMatch.end)));
+        i++;
+        continue;
+      }
+
+      if (line.startsWith('> ')) {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.quote, content: line.substring(2)));
+        i++;
+        continue;
+      }
+
+      if (line.startsWith('- ')) {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.bulletList, content: line.substring(2)));
+        i++;
+        continue;
+      }
+
+      final numMatch = RegExp(r'^\d+\. ').matchAsPrefix(line);
+      if (numMatch != null) {
+        blocks.add(MDBlock(id: id(), type: MDBlockType.numberedList, content: line.substring(numMatch.end)));
+        i++;
+        continue;
+      }
+
+      blocks.add(MDBlock(id: id(), type: MDBlockType.paragraph, content: line));
+      i++;
+    }
+
+    if (blocks.isEmpty) {
+      blocks.add(MDBlock(id: id(), type: MDBlockType.paragraph));
+    }
+
+    return blocks;
+  }
+
+  static String serializeBlocks(List<MDBlock> blocks) {
+    return blocks.map((block) {
+      switch (block.type) {
+        case MDBlockType.paragraph:
+          return block.content;
+        case MDBlockType.heading1:
+          return '# ${block.content}';
+        case MDBlockType.heading2:
+          return '## ${block.content}';
+        case MDBlockType.heading3:
+          return '### ${block.content}';
+        case MDBlockType.code:
+          return '```\n${block.content}\n```';
+        case MDBlockType.quote:
+          return '> ${block.content}';
+        case MDBlockType.bulletList:
+          return '- ${block.content}';
+        case MDBlockType.numberedList:
+          return '1. ${block.content}';
+        case MDBlockType.todo:
+          return '- [ ] ${block.content}';
+        case MDBlockType.divider:
+          return '---';
+      }
+    }).join('\n');
   }
 }
