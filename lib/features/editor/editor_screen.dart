@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,24 +57,23 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
 
   Future<bool> _save() async {
     final notifier = ref.read(editorProvider.notifier);
-    final filePath = ref.read(editorProvider).filePath;
-    if (filePath.isNotEmpty) {
+    final state = ref.read(editorProvider);
+    if (state.filePath.isNotEmpty) {
       return notifier.saveFile();
     }
-    final path = await _pickSavePath();
-    if (path == null) return false;
-    return notifier.saveNewFile(path);
-  }
-
-  Future<String?> _pickSavePath() async {
+    // 新文件：将内容作为 bytes 传给 FilePicker，由它处理平台特定的写入（Android content:// URI）
     try {
-      final result = await FilePicker.platform.saveFile(
+      final bytes = utf8.encode(state.content);
+      final path = await FilePicker.platform.saveFile(
+        fileName: 'untitled.md',
         type: FileType.custom,
         allowedExtensions: ['md', 'markdown'],
+        bytes: bytes,
       );
-      return result;
+      if (path == null) return false;
+      return notifier.saveNewFile(path);
     } catch (_) {
-      return null;
+      return false;
     }
   }
 
