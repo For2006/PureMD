@@ -1,4 +1,4 @@
-package com.example.pure_md
+package com.puremd.app
 
 import io.flutter.embedding.android.FlutterActivity
 
