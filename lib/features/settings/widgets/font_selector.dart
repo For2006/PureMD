@@ -31,9 +31,7 @@ class FontSelector extends ConsumerWidget {
         return ChoiceChip(
           label: Text(
             displayName,
-            style: fontFamily.isNotEmpty
-                ? GoogleFonts.getFont(fontFamily)
-                : null,
+            style: _getFontPreviewStyle(fontFamily),
           ),
           selected: isSelected,
           onSelected: (_) {
@@ -47,5 +45,14 @@ class FontSelector extends ConsumerWidget {
         );
       }).toList(),
     );
+  }
+
+  TextStyle? _getFontPreviewStyle(String fontFamily) {
+    if (fontFamily.isEmpty) return null;
+    try {
+      return GoogleFonts.getFont(fontFamily);
+    } catch (_) {
+      return TextStyle(fontFamily: fontFamily);
+    }
   }
 }

@@ -89,6 +89,21 @@ class EditorNotifier extends StateNotifier<EditorState> {
     }
   }
 
+  Future<bool> saveNewFile(String filePath) async {
+    try {
+      await FileService.writeFile(filePath, state.content);
+      state = state.copyWith(
+        filePath: filePath,
+        originalContent: state.content,
+        isModified: false,
+      );
+      _autoSaveTimer?.cancel();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _scheduleAutoSave() {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer(const Duration(seconds: 5), () {

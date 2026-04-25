@@ -38,7 +38,6 @@ class ReaderNotifier extends StateNotifier<AsyncValue<MarkdownFile?>> {
   }
 
   Future<void> loadFile(String path) async {
-    state = const AsyncValue.loading();
     try {
       final content = await FileService.readFile(path);
       final lastModified = await FileService.lastModified(path);
@@ -50,7 +49,7 @@ class ReaderNotifier extends StateNotifier<AsyncValue<MarkdownFile?>> {
         lastModified: lastModified,
       );
       state = AsyncValue.data(file);
-
+      // Fire-and-forget: update recent files list without blocking
       _ref.read(fileBrowserProvider.notifier).addToRecent(
             path: path,
             displayName: name,

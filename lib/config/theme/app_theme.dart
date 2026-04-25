@@ -8,7 +8,22 @@ import 'color_schemes.dart';
 class AppTheme {
   AppTheme._();
 
+  static final Map<_ThemeCacheKey, ThemeData> _cache = {};
+
   static ThemeData buildTheme(
+    AppThemeVariant variant, {
+    String? fontFamily,
+    double fontSize = 16.0,
+  }) {
+    final key = _ThemeCacheKey(
+      variant,
+      fontFamily ?? '',
+      fontSize,
+    );
+    return _cache.putIfAbsent(key, () => _buildTheme(variant, fontFamily: fontFamily, fontSize: fontSize));
+  }
+
+  static ThemeData _buildTheme(
     AppThemeVariant variant, {
     String? fontFamily,
     double fontSize = 16.0,
@@ -177,6 +192,25 @@ class AppTheme {
       return textTheme;
     }
   }
+}
+
+class _ThemeCacheKey {
+  final AppThemeVariant variant;
+  final String fontFamily;
+  final double fontSize;
+
+  const _ThemeCacheKey(this.variant, this.fontFamily, this.fontSize);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _ThemeCacheKey &&
+          variant == other.variant &&
+          fontFamily == other.fontFamily &&
+          fontSize == other.fontSize;
+
+  @override
+  int get hashCode => Object.hash(variant, fontFamily, fontSize);
 }
 
 class _EditorialPageTransition extends PageTransitionsBuilder {

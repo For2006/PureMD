@@ -25,6 +25,13 @@ class PureMDApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: theme,
       routerConfig: appRouter,
+      builder: (context, child) {
+        return AnimatedTheme(
+          data: theme,
+          duration: const Duration(milliseconds: 300),
+          child: child!,
+        );
+      },
     );
   }
 }

@@ -59,7 +59,9 @@ class MarkdownUtils {
 
   static void insertLink(TextEditingController controller) {
     final selection = controller.selection;
-    final selectedText = selection.textInside(controller.text);
+    final hasValidSelection = selection.start >= 0 && selection.end >= 0 &&
+        selection.start <= controller.text.length && selection.end <= controller.text.length;
+    final selectedText = hasValidSelection ? selection.textInside(controller.text) : '';
     if (selectedText.isNotEmpty) {
       wrapSelection(controller, prefix: '[', suffix: '](url)');
     } else {
@@ -86,7 +88,9 @@ class MarkdownUtils {
 
   static void insertCode(TextEditingController controller) {
     final selection = controller.selection;
-    final selectedText = selection.textInside(controller.text);
+    final hasValidSelection = selection.start >= 0 && selection.end >= 0 &&
+        selection.start <= controller.text.length && selection.end <= controller.text.length;
+    final selectedText = hasValidSelection ? selection.textInside(controller.text) : '';
     if (selectedText.contains('\n')) {
       wrapSelection(controller, prefix: '```\n', suffix: '\n```');
     } else {

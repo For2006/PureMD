@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'editor_provider.dart';
 import 'widgets/markdown_toolbar.dart';
@@ -53,6 +54,29 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
     super.dispose();
   }
 
+  Future<bool> _save() async {
+    final notifier = ref.read(editorProvider.notifier);
+    final filePath = ref.read(editorProvider).filePath;
+    if (filePath.isNotEmpty) {
+      return notifier.saveFile();
+    }
+    final path = await _pickSavePath();
+    if (path == null) return false;
+    return notifier.saveNewFile(path);
+  }
+
+  Future<String?> _pickSavePath() async {
+    try {
+      final result = await FilePicker.platform.saveFile(
+        type: FileType.custom,
+        allowedExtensions: ['md', 'markdown'],
+      );
+      return result;
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _togglePreview() {
     HapticFeedback.lightImpact();
     setState(() => _isPreviewVisible = !_isPreviewVisible);
@@ -66,25 +90,18 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
 
   @override
   Widget build(BuildContext context) {
-    final editorState = ref.watch(editorProvider);
-    final notifier = ref.read(editorProvider.notifier);
+    final isModified = ref.watch(editorProvider.select((s) => s.isModified));
+    final filePath = ref.watch(editorProvider.select((s) => s.filePath));
     final colorScheme = Theme.of(context).colorScheme;
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
-
-    if (_textController.text != editorState.content) {
-      _textController.text = editorState.content;
-      _textController.selection = TextSelection.collapsed(
-        offset: editorState.content.length,
-      );
-    }
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           onPressed: () {
-            if (editorState.isModified) {
-              _showSaveDialog(context, notifier);
+            if (isModified) {
+              _showSaveDialog(context);
             } else {
               context.go('/');
             }
@@ -95,7 +112,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
         title: Text(
           widget.quickMode
               ? '新笔记'
-              : (editorState.filePath.isNotEmpty ? '编辑' : '编辑器'),
+              : (filePath.isNotEmpty ? '编辑' : '编辑器'),
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -120,13 +137,13 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
               ),
             ),
           AnimatedOpacity(
-            opacity: editorState.isModified ? 1.0 : 0.4,
+            opacity: isModified ? 1.0 : 0.4,
             duration: const Duration(milliseconds: 200),
             child: IconButton(
-              onPressed: editorState.isModified
+              onPressed: isModified
                   ? () async {
                       HapticFeedback.mediumImpact();
-                      final saved = await notifier.saveFile();
+                      final saved = await _save();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -155,12 +172,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
         ],
       ),
       body: EditorScaffold(
-        editor: _buildEditor(context, colorScheme, notifier),
-        preview: PreviewPane(content: editorState.content),
+        editor: _EditorBody(controller: _textController),
+        preview: const PreviewPane(),
         toolbar: MarkdownToolbar(
           controller: _textController,
           onFormat: () {
-            notifier.updateContent(_textController.text);
+            ref.read(editorProvider.notifier).updateContent(_textController.text);
           },
         ),
         showPreview: _isPreviewVisible,
@@ -169,11 +186,57 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
     );
   }
 
-  Widget _buildEditor(BuildContext context, ColorScheme colorScheme, EditorNotifier notifier) {
+  void _showSaveDialog(BuildContext context) {
+    HapticFeedback.lightImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('未保存的更改'),
+        content: const Text('是否保存当前更改？'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/');
+            },
+            child: Text(
+              '放弃',
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              final saved = await _save();
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (saved && context.mounted) context.go('/');
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditorBody extends ConsumerWidget {
+  final TextEditingController controller;
+
+  const _EditorBody({required this.controller});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final content = ref.watch(editorProvider.select((s) => s.content));
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (controller.text != content) {
+      controller.text = content;
+      controller.selection = TextSelection.collapsed(offset: content.length);
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: TextField(
-        controller: _textController,
+        controller: controller,
         maxLines: null,
         expands: true,
         textAlignVertical: TextAlignVertical.top,
@@ -195,39 +258,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
           contentPadding: const EdgeInsets.only(top: 8, bottom: 8),
         ),
         onChanged: (text) {
-          notifier.updateContent(text);
+          ref.read(editorProvider.notifier).updateContent(text);
         },
-      ),
-    );
-  }
-
-  void _showSaveDialog(BuildContext context, EditorNotifier notifier) {
-    HapticFeedback.lightImpact();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('未保存的更改'),
-        content: const Text('是否保存当前更改？'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.go('/');
-            },
-            child: Text(
-              '放弃',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              await notifier.saveFile();
-              if (ctx.mounted) Navigator.pop(ctx);
-              if (context.mounted) context.go('/');
-            },
-            child: const Text('保存'),
-          ),
-        ],
       ),
     );
   }

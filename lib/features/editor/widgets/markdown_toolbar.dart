@@ -169,42 +169,23 @@ class _ToolButton extends StatefulWidget {
   State<_ToolButton> createState() => _ToolButtonState();
 }
 
-class _ToolButtonState extends State<_ToolButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      duration: const Duration(milliseconds: 80),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
+class _ToolButtonState extends State<_ToolButton> {
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
     return Tooltip(
       message: widget.label,
       child: GestureDetector(
-        onTapDown: (_) => _animController.forward(),
+        onTapDown: (_) => setState(() => _isPressed = true),
         onTapUp: (_) {
-          _animController.reverse();
+          setState(() => _isPressed = false);
           widget.onTap();
         },
-        onTapCancel: () => _animController.reverse(),
-        child: ScaleTransition(
-          scale: _scaleAnimation,
+        onTapCancel: () => setState(() => _isPressed = false),
+        child: AnimatedScale(
+          scale: _isPressed ? 0.88 : 1.0,
+          duration: const Duration(milliseconds: 80),
           child: Container(
             width: 38,
             height: 38,

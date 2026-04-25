@@ -15,13 +15,44 @@ class MarkdownRenderer extends ConsumerWidget {
     this.onLinkTap,
   });
 
+  static final Map<_MarkdownStyleKey, MarkdownStyleSheet> _styleCache = {};
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final effectiveFontSize = fontSize ?? theme.textTheme.bodyLarge?.fontSize ?? 16.0;
 
-    final styleSheet = MarkdownStyleSheet(
+    final styleKey = _MarkdownStyleKey(
+      colorScheme: colorScheme,
+      fontSize: effectiveFontSize,
+    );
+    final styleSheet = _styleCache.putIfAbsent(styleKey, () => _buildStyleSheet(
+      theme: theme,
+      colorScheme: colorScheme,
+      effectiveFontSize: effectiveFontSize,
+    ));
+
+    return MarkdownBody(
+      data: data,
+      styleSheet: styleSheet,
+      selectable: true,
+      onTapLink: (text, href, title) {
+        if (href != null) {
+          final uri = Uri.parse(href);
+          launchUrl(uri);
+        }
+        onLinkTap?.call();
+      },
+    );
+  }
+
+  static MarkdownStyleSheet _buildStyleSheet({
+    required ThemeData theme,
+    required ColorScheme colorScheme,
+    required double effectiveFontSize,
+  }) {
+    return MarkdownStyleSheet(
       h1: theme.textTheme.headlineLarge?.copyWith(
         color: colorScheme.onSurface,
         fontWeight: FontWeight.bold,
@@ -86,18 +117,25 @@ class MarkdownRenderer extends ConsumerWidget {
         decoration: TextDecoration.underline,
       ),
     );
-
-    return MarkdownBody(
-      data: data,
-      styleSheet: styleSheet,
-      selectable: true,
-      onTapLink: (text, href, title) {
-        if (href != null) {
-          final uri = Uri.parse(href);
-          launchUrl(uri);
-        }
-        onLinkTap?.call();
-      },
-    );
   }
+}
+
+class _MarkdownStyleKey {
+  final ColorScheme colorScheme;
+  final double fontSize;
+
+  const _MarkdownStyleKey({
+    required this.colorScheme,
+    required this.fontSize,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _MarkdownStyleKey &&
+          colorScheme == other.colorScheme &&
+          fontSize == other.fontSize;
+
+  @override
+  int get hashCode => Object.hash(colorScheme, fontSize);
 }

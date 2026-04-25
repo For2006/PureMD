@@ -32,7 +32,7 @@ class FileBrowserNotifier extends StateNotifier<AsyncValue<List<RecentFileEntry>
   }) async {
     try {
       final storageService = _ref.read(storageServiceProvider);
-      final files = await storageService.getRecentFiles();
+      final files = List<RecentFileEntry>.from(state.value ?? []);
 
       files.removeWhere((f) => f.path == path);
       files.insert(0, RecentFileEntry(
@@ -44,26 +44,26 @@ class FileBrowserNotifier extends StateNotifier<AsyncValue<List<RecentFileEntry>
 
       if (files.length > 20) files.removeRange(20, files.length);
 
-      await storageService.saveRecentFiles(files);
       state = AsyncValue.data(files);
+      await storageService.saveRecentFiles(files);
     } catch (_) {}
   }
 
   Future<void> removeFromRecent(String path) async {
     try {
       final storageService = _ref.read(storageServiceProvider);
-      final files = await storageService.getRecentFiles();
+      final files = List<RecentFileEntry>.from(state.value ?? []);
       files.removeWhere((f) => f.path == path);
-      await storageService.saveRecentFiles(files);
       state = AsyncValue.data(files);
+      await storageService.saveRecentFiles(files);
     } catch (_) {}
   }
 
   Future<void> clearRecent() async {
+    state = const AsyncValue.data([]);
     try {
       final storageService = _ref.read(storageServiceProvider);
       await storageService.saveRecentFiles([]);
-      state = const AsyncValue.data([]);
     } catch (_) {}
   }
 

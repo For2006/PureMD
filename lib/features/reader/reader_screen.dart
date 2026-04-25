@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/markdown_file.dart';
 import '../editor/editor_provider.dart';
 import '../settings/settings_provider.dart';
 import 'reader_provider.dart';
@@ -65,7 +66,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Widget build(BuildContext context) {
     final fileAsync = ref.watch(currentFileProvider);
     final isFocusMode = ref.watch(isFocusModeProvider);
-    final settings = ref.watch(settingsProvider).valueOrNull;
+    final fontSize = ref.watch(settingsProvider.select((s) => s.valueOrNull?.fontSize));
     final colorScheme = Theme.of(context).colorScheme;
 
     return fileAsync.when(
@@ -82,7 +83,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           );
         }
 
-        Widget body = _buildReaderBody(context, file, settings, isFocusMode, colorScheme);
+        Widget body = _buildReaderBody(context, file, fontSize, isFocusMode, colorScheme);
 
         if (isFocusMode) {
           body = GestureDetector(
@@ -246,8 +247,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Widget _buildReaderBody(
     BuildContext context,
-    dynamic file,
-    dynamic settings,
+    MarkdownFile file,
+    double? fontSize,
     bool isFocusMode,
     ColorScheme colorScheme,
   ) {
@@ -288,7 +289,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                           curve: Curves.easeInOut,
                           child: MarkdownRenderer(
                             data: file.content,
-                            fontSize: settings?.fontSize,
+                            fontSize: fontSize,
                           ),
                         ),
                       ),
