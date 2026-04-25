@@ -8,11 +8,17 @@ class FontSelector extends ConsumerWidget {
   const FontSelector({super.key});
 
   static const _fontOptions = [
-    ('', '默认'),
+    ('', '默认 (系统字体)'),
     ('Noto Sans SC', 'Noto Sans SC'),
     ('Noto Serif SC', 'Noto Serif SC'),
     ('LXGW WenKai', '霞鹜文楷'),
     ('Inter', 'Inter'),
+    ('Lora', 'Lora'),
+    ('JetBrains Mono', 'JetBrains Mono'),
+    ('Fira Code', 'Fira Code'),
+    ('Playfair Display', 'Playfair Display'),
+    ('Source Serif 4', 'Source Serif 4'),
+    ('ZCOOL XiaoWei', '站酷小魏'),
   ];
 
   @override

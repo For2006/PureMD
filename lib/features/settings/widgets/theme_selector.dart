@@ -106,6 +106,8 @@ class ThemeSelector extends ConsumerWidget {
     switch (variant) {
       case AppThemeVariant.light:
         return const Color(0xFFFAFAFA);
+      case AppThemeVariant.sepia:
+        return const Color(0xFFF5F0E8);
       case AppThemeVariant.dark:
         return const Color(0xFF1C1B1F);
       case AppThemeVariant.oled:
@@ -121,6 +123,8 @@ class ThemeSelector extends ConsumerWidget {
     switch (variant) {
       case AppThemeVariant.light:
         return const Color(0xFF2D5A7B);
+      case AppThemeVariant.sepia:
+        return const Color(0xFF7A5A3A);
       case AppThemeVariant.dark:
         return const Color(0xFF8FC9E8);
       case AppThemeVariant.oled:

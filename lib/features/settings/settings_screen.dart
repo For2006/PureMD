@@ -47,6 +47,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 20),
           const FontSizeSlider(),
           const SizedBox(height: 28),
+          _SectionHeader(title: '帮助', colorScheme: colorScheme),
+          const SizedBox(height: 12),
+          _GuideCard(colorScheme: colorScheme),
+          const SizedBox(height: 12),
           _SectionHeader(title: '关于', colorScheme: colorScheme),
           const SizedBox(height: 12),
           _AboutCard(colorScheme: colorScheme),
@@ -77,6 +81,70 @@ class _SectionHeader extends StatelessWidget {
               letterSpacing: 1.2,
               fontSize: 11,
             ),
+      ),
+    );
+  }
+}
+
+class _GuideCard extends StatelessWidget {
+  final ColorScheme colorScheme;
+
+  const _GuideCard({required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: colorScheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          context.go('/guide');
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.help_outline,
+                color: colorScheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Markdown 语法指南',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                    Text(
+                      '快速参考 Markdown 常用语法',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.outline,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.outline,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

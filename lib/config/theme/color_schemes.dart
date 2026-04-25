@@ -127,4 +127,29 @@ class ColorSchemes {
     outline: Color(0xFF8C8E93),
     outlineVariant: Color(0xFF33353B),
   );
+
+  static const sepia = ColorScheme(
+    brightness: Brightness.light,
+    primary: Color(0xFF7A5A3A),
+    onPrimary: Colors.white,
+    primaryContainer: Color(0xFFF0E2D0),
+    onPrimaryContainer: Color(0xFF2B1A0E),
+    secondary: Color(0xFF8C7A64),
+    onSecondary: Colors.white,
+    secondaryContainer: Color(0xFFE8DDD0),
+    onSecondaryContainer: Color(0xFF241E17),
+    tertiary: Color(0xFF5B7A5A),
+    onTertiary: Colors.white,
+    tertiaryContainer: Color(0xFFDCE8D0),
+    onTertiaryContainer: Color(0xFF0A1F0A),
+    error: Color(0xFFBA1A1A),
+    onError: Colors.white,
+    errorContainer: Color(0xFFFFDAD6),
+    onErrorContainer: Color(0xFF410002),
+    surface: Color(0xFFF8F4EC),
+    onSurface: Color(0xFF1F1B16),
+    surfaceContainerHighest: Color(0xFFEDE4D8),
+    outline: Color(0xFF7F756B),
+    outlineVariant: Color(0xFFCCC2B6),
+  );
 }

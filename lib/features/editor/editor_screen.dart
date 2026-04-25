@@ -28,6 +28,7 @@ class EditorScreen extends ConsumerStatefulWidget {
 class _EditorScreenState extends ConsumerState<EditorScreen>
     with SingleTickerProviderStateMixin {
   final _blockEditorKey = GlobalKey<BlockEditorState>();
+  final _fallbackController = TextEditingController();
   late AnimationController _previewAnimController;
   bool _isPreviewVisible = false;
 
@@ -50,6 +51,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
 
   @override
   void dispose() {
+    _fallbackController.dispose();
     _previewAnimController.dispose();
     super.dispose();
   }
@@ -61,9 +63,11 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
       return notifier.saveFile();
     }
     try {
+      final now = DateTime.now();
+      final timestamp = '${now.year}${_pad(now.month)}${_pad(now.day)}_${_pad(now.hour)}${_pad(now.minute)}${_pad(now.second)}';
       final bytes = utf8.encode(state.content);
       final path = await FilePicker.platform.saveFile(
-        fileName: 'untitled.md',
+        fileName: '笔记_$timestamp.md',
         type: FileType.custom,
         allowedExtensions: ['md', 'markdown'],
         bytes: bytes,
@@ -84,6 +88,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
       _previewAnimController.reverse();
     }
   }
+
+  String _pad(int n) => n.toString().padLeft(2, '0');
 
   @override
   Widget build(BuildContext context) {
@@ -173,14 +179,10 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
       body: EditorScaffold(
         editor: BlockEditor(key: _blockEditorKey),
         preview: const PreviewPane(),
-        toolbar: focusedController != null
-            ? MarkdownToolbar(
-                controller: focusedController,
-                onFormat: () {
-                  if (focusedController.text.isNotEmpty) {}
-                },
-              )
-            : const SizedBox.shrink(),
+        toolbar: MarkdownToolbar(
+          controller: focusedController ?? _fallbackController,
+          onFormat: () {},
+        ),
         showPreview: _isPreviewVisible,
         isLandscape: isLandscape,
       ),

@@ -220,12 +220,19 @@ class _BlockWidget extends StatelessWidget {
       return _buildDivider(colorScheme);
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildDragHandle(colorScheme),
-        Expanded(child: _buildContent(context, colorScheme)),
-      ],
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 1),
+      decoration: BoxDecoration(
+        color: isFocused ? colorScheme.primaryContainer.withValues(alpha: 0.15) : Colors.transparent,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDragHandle(colorScheme),
+          Expanded(child: _buildContent(context, colorScheme)),
+        ],
+      ),
     );
   }
 

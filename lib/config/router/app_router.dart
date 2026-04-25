@@ -4,6 +4,7 @@ import '../../features/reader/reader_screen.dart';
 import '../../features/editor/editor_screen.dart';
 import '../../features/file_browser/file_browser_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/guide/guide_screen.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/',
@@ -34,6 +35,11 @@ final appRouter = GoRouter(
       path: '/settings',
       name: 'settings',
       builder: (context, state) => const SettingsScreen(),
+    ),
+    GoRoute(
+      path: '/guide',
+      name: 'guide',
+      builder: (context, state) => const MarkdownGuideScreen(),
     ),
   ],
 );

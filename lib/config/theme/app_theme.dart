@@ -128,6 +128,8 @@ class AppTheme {
     switch (variant) {
       case AppThemeVariant.light:
         return ColorSchemes.light;
+      case AppThemeVariant.sepia:
+        return ColorSchemes.sepia;
       case AppThemeVariant.dark:
         return ColorSchemes.dark;
       case AppThemeVariant.oled:
