@@ -111,4 +111,41 @@ class MarkdownUtils {
     final prefix = needsNewline ? '\n---\n' : '---\n';
     wrapSelection(controller, prefix: prefix);
   }
+
+  static void insertImage(TextEditingController controller) {
+    final selection = controller.selection;
+    final hasValidSelection = selection.start >= 0 && selection.end >= 0 &&
+        selection.start <= controller.text.length && selection.end <= controller.text.length;
+    final selectedText = hasValidSelection ? selection.textInside(controller.text) : '';
+    if (selectedText.isNotEmpty) {
+      wrapSelection(controller, prefix: '![', suffix: '](url)');
+    } else {
+      wrapSelection(controller, prefix: '![图片描述](url)');
+    }
+  }
+
+  static void insertCodeBlock(TextEditingController controller) {
+    final selection = controller.selection;
+    final hasValidSelection = selection.start >= 0 && selection.end >= 0 &&
+        selection.start <= controller.text.length && selection.end <= controller.text.length;
+    final selectedText = hasValidSelection ? selection.textInside(controller.text) : '';
+    final prefix = '```\n';
+    final suffix = '\n```';
+    if (selectedText.isNotEmpty && !selectedText.contains('\n')) {
+      wrapSelection(controller, prefix: '$prefix$selectedText', suffix: suffix);
+    } else {
+      wrapSelection(controller, prefix: prefix, suffix: suffix);
+    }
+  }
+
+  static void insertTable(TextEditingController controller) {
+    final text = controller.text;
+    final cursorPos = controller.selection.start >= 0
+        ? controller.selection.start
+        : text.length;
+    final needsNewline = cursorPos > 0 && text[cursorPos - 1] != '\n';
+    final prefix = needsNewline ? '\n' : '';
+    final table = '$prefix| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |';
+    wrapSelection(controller, prefix: table);
+  }
 }

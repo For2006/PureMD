@@ -64,9 +64,22 @@ class MarkdownToolbar extends StatelessWidget {
               colorScheme: colorScheme,
             ),
             _ToolButton(
+              icon: Icons.image_outlined,
+              label: '图片',
+              onTap: () => _insert(_Action.image),
+              colorScheme: colorScheme,
+            ),
+            _VerticalDivider(colorScheme: colorScheme),
+            _ToolButton(
               icon: Icons.code,
               label: '代码',
               onTap: () => _insert(_Action.code),
+              colorScheme: colorScheme,
+            ),
+            _ToolButton(
+              icon: Icons.integration_instructions,
+              label: '代码块',
+              onTap: () => _insert(_Action.codeBlock),
               colorScheme: colorScheme,
             ),
             _VerticalDivider(colorScheme: colorScheme),
@@ -101,6 +114,12 @@ class MarkdownToolbar extends StatelessWidget {
               onTap: () => _insert(_Action.divider),
               colorScheme: colorScheme,
             ),
+            _ToolButton(
+              icon: Icons.table_chart_outlined,
+              label: '表格',
+              onTap: () => _insert(_Action.table),
+              colorScheme: colorScheme,
+            ),
           ],
         ),
       ),
@@ -129,10 +148,16 @@ class MarkdownToolbar extends StatelessWidget {
         MarkdownUtils.insertTodo(controller);
       case _Action.code:
         MarkdownUtils.insertCode(controller);
+      case _Action.codeBlock:
+        MarkdownUtils.insertCodeBlock(controller);
       case _Action.quote:
         MarkdownUtils.insertQuote(controller);
       case _Action.divider:
         MarkdownUtils.insertDivider(controller);
+      case _Action.image:
+        MarkdownUtils.insertImage(controller);
+      case _Action.table:
+        MarkdownUtils.insertTable(controller);
     }
     onFormat?.call();
   }
@@ -144,12 +169,15 @@ enum _Action {
   strikethrough,
   heading,
   link,
+  image,
+  code,
+  codeBlock,
   unorderedList,
   orderedList,
   todo,
-  code,
   quote,
   divider,
+  table,
 }
 
 class _ToolButton extends StatefulWidget {
