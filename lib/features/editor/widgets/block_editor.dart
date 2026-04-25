@@ -16,7 +16,6 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, FocusNode> _focusNodes = {};
   int _focusedIndex = -1;
-  int _newlineGuard = 0;
 
   TextEditingController? get focusedController {
     if (_focusedIndex < 0) return null;
@@ -60,42 +59,14 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
     });
   }
 
-  void _onTextChanged(int index, String text, MDBlock block) {
-    if (_newlineGuard > 0) return;
-    if (text.contains('\n')) {
-      _newlineGuard++;
-      final parts = text.split('\n');
-      final before = parts.first;
-      final after = parts.sublist(1).join('\n');
-
-      ref.read(editorProvider.notifier).updateBlockContent(index, before);
-      if (after.isNotEmpty) {
-        ref.read(editorProvider.notifier).insertBlock(index + 1, content: after);
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final blocks = ref.read(editorProvider).blocks;
-        if (index + 1 < blocks.length) {
-          final node = _focusNodes[blocks[index + 1].id];
-          if (node != null) {
-            node.requestFocus();
-            final ctrl = _controllers[blocks[index + 1].id];
-            ctrl?.selection = TextSelection.collapsed(offset: 0);
-          }
-        }
-        _newlineGuard--;
-      });
-    } else {
-      ref.read(editorProvider.notifier).updateBlockContent(index, text);
-    }
+  void _onTextChanged(int index, String text) {
+    ref.read(editorProvider.notifier).updateBlockContent(index, text);
   }
 
-  bool _onBackspace(int index) {
-    if (_focusedIndex != index) return false;
+  void _onDelete(int index) {
     final blocks = ref.read(editorProvider).blocks;
-    if (index >= blocks.length) return false;
-    if (blocks[index].content.isNotEmpty) return false;
-    if (blocks.length <= 1) return false;
+    if (index >= blocks.length) return;
+    if (blocks.length <= 1) return;
 
     ref.read(editorProvider.notifier).deleteBlock(index);
     final targetIndex = index > 0 ? index - 1 : 0;
@@ -105,7 +76,6 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
         final targetNode = _focusNodes[updatedBlocks[targetIndex].id];
         if (targetNode != null) {
           targetNode.requestFocus();
-          // Move cursor to end of previous block
           final ctrl = _controllers[updatedBlocks[targetIndex].id];
           if (ctrl != null) {
             ctrl.selection = TextSelection.collapsed(offset: ctrl.text.length);
@@ -113,7 +83,23 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
         }
       }
     });
-    return true;
+  }
+
+  void _onAddBlock(int index) {
+    ref.read(editorProvider.notifier).insertBlock(index + 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final blocks = ref.read(editorProvider).blocks;
+      if (index + 1 < blocks.length) {
+        final node = _focusNodes[blocks[index + 1].id];
+        if (node != null) {
+          node.requestFocus();
+          final ctrl = _controllers[blocks[index + 1].id];
+          if (ctrl != null) {
+            ctrl.selection = TextSelection.collapsed(offset: 0);
+          }
+        }
+      }
+    });
   }
 
   void _onArrowUp(int index) {
@@ -146,7 +132,10 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
           ref.read(editorProvider.notifier).changeBlockType(index, type);
         },
       ),
-    );
+    ).then((_) {
+      // Ensure controllers stay in sync after sheet closes
+      setState(() {});
+    });
   }
 
   @override
@@ -182,8 +171,9 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
             controller: controller,
             focusNode: focusNode,
             isFocused: isFocused,
-            onChanged: (text) => _onTextChanged(index, text, block),
-            onBackspace: () => _onBackspace(index),
+            onChanged: (text) => _onTextChanged(index, text),
+            onDelete: () => _onDelete(index),
+            onAddBlock: () => _onAddBlock(index),
             onArrowUp: () => _onArrowUp(index),
             onArrowDown: () => _onArrowDown(index),
             onTypeTap: () => _showTypeSelector(context, index),
@@ -204,7 +194,8 @@ class _BlockWidget extends StatelessWidget {
   final FocusNode focusNode;
   final bool isFocused;
   final ValueChanged<String> onChanged;
-  final VoidCallback onBackspace;
+  final VoidCallback onDelete;
+  final VoidCallback onAddBlock;
   final VoidCallback onArrowUp;
   final VoidCallback onArrowDown;
   final VoidCallback onTypeTap;
@@ -217,7 +208,8 @@ class _BlockWidget extends StatelessWidget {
     required this.focusNode,
     required this.isFocused,
     required this.onChanged,
-    required this.onBackspace,
+    required this.onDelete,
+    required this.onAddBlock,
     required this.onArrowUp,
     required this.onArrowDown,
     required this.onTypeTap,
@@ -229,7 +221,14 @@ class _BlockWidget extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (block.type == MDBlockType.divider) {
-      return _buildDivider(colorScheme);
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 1),
+        decoration: BoxDecoration(
+          color: isFocused ? colorScheme.primaryContainer.withValues(alpha: 0.15) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: _buildDivider(colorScheme),
+      );
     }
 
     return Container(
@@ -243,6 +242,7 @@ class _BlockWidget extends StatelessWidget {
         children: [
           _buildDragHandle(colorScheme),
           Expanded(child: _buildContent(context, colorScheme)),
+          if (isFocused) _buildBlockActions(colorScheme),
         ],
       ),
     );
@@ -271,6 +271,46 @@ class _BlockWidget extends StatelessWidget {
             color: isFocused ? colorScheme.primary : colorScheme.outline,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBlockActions(ColorScheme colorScheme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _actionButton(
+          icon: Icons.add_circle_outline,
+          color: colorScheme.primary,
+          onTap: onAddBlock,
+        ),
+        const SizedBox(width: 4),
+        _actionButton(
+          icon: Icons.delete_outline,
+          color: colorScheme.error,
+          onTap: onDelete,
+        ),
+      ],
+    );
+  }
+
+  Widget _actionButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 32,
+        height: 32,
+        alignment: Alignment.center,
+        margin: const EdgeInsets.only(top: 6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 18, color: color),
       ),
     );
   }
@@ -316,6 +356,7 @@ class _BlockWidget extends StatelessWidget {
               color: colorScheme.outlineVariant,
             ),
           ),
+          if (isFocused) _buildBlockActions(colorScheme),
         ],
       ),
     );

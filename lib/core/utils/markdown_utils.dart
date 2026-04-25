@@ -292,30 +292,30 @@ class MarkdownUtils {
         case MDBlockType.paragraph:
           return block.content;
         case MDBlockType.heading1:
-          return '# ${block.content}';
+          return '# ${block.content.replaceAll('\n', ' ')}';
         case MDBlockType.heading2:
-          return '## ${block.content}';
+          return '## ${block.content.replaceAll('\n', ' ')}';
         case MDBlockType.heading3:
-          return '### ${block.content}';
+          return '### ${block.content.replaceAll('\n', ' ')}';
         case MDBlockType.code:
           final lang = block.language ?? '';
           return lang.isNotEmpty ? '```$lang\n${block.content}\n```' : '```\n${block.content}\n```';
         case MDBlockType.quote:
-          return '> ${block.content}';
+          return block.content.split('\n').map((l) => '> $l').join('\n');
         case MDBlockType.bulletList:
-          return '- ${block.content}';
+          return '- ${block.content.replaceAll('\n', ' ')}';
         case MDBlockType.numberedList:
-          return '1. ${block.content}';
+          return '1. ${block.content.replaceAll('\n', ' ')}';
         case MDBlockType.todo: {
           final checkbox = block.isChecked ? '[x]' : '[ ]';
-          return '- $checkbox ${block.content}';
+          return '- $checkbox ${block.content.replaceAll('\n', ' ')}';
         }
         case MDBlockType.divider:
           return '---';
         case MDBlockType.table:
           return block.content;
         case MDBlockType.image:
-          return block.content;
+          return block.content.replaceAll('\n', ' ');
       }
     }).join('\n');
   }
