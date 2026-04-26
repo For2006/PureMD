@@ -14,7 +14,7 @@ class SettingsNotifier extends StateNotifier<AsyncValue<AppSettings>> {
   final Ref _ref;
   Timer? _debounceTimer;
 
-  SettingsNotifier(this._ref) : super(const AsyncValue.loading()) {
+  SettingsNotifier(this._ref) : super(AsyncValue.data(const AppSettings())) {
     _loadSettings();
   }
 

@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../services/file_service.dart';
 import 'editor_provider.dart';
 import 'widgets/markdown_toolbar.dart';
 import 'widgets/preview_pane.dart';
@@ -59,6 +61,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
   }
 
   Future<bool> _save() async {
+    _blockEditorKey.currentState?.flushUpdates();
     if (_isSaving) return false;
     _isSaving = true;
     if (mounted) setState(() {});
@@ -88,6 +91,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
   }
 
   void _togglePreview() {
+    _blockEditorKey.currentState?.flushUpdates();
     HapticFeedback.lightImpact();
     setState(() => _isPreviewVisible = !_isPreviewVisible);
     if (_isPreviewVisible) {
@@ -100,6 +104,7 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
   String _pad(int n) => n.toString().padLeft(2, '0');
 
   Future<bool> _handleBack() async {
+    _blockEditorKey.currentState?.flushUpdates();
     final state = ref.read(editorProvider);
     if (!state.isModified) return true;
     final result = await _showSaveDialog();
@@ -130,7 +135,12 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
       child: Scaffold(
         appBar: AppBar(
           leading: IconButton(
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: () async {
+              final canLeave = await _handleBack();
+              if (canLeave && context.mounted) {
+                context.go('/');
+              }
+            },
             icon: const Icon(Icons.arrow_back),
             iconSize: 22,
           ),
@@ -143,6 +153,21 @@ class _EditorScreenState extends ConsumerState<EditorScreen>
                 ),
           ),
           actions: [
+            IconButton(
+              onPressed: () async {
+                final state = ref.read(editorProvider);
+                if (state.filePath.isNotEmpty) {
+                  HapticFeedback.lightImpact();
+                  await Share.shareXFiles(
+                    [XFile(state.filePath)],
+                    text: FileService.getFileName(state.filePath),
+                  );
+                }
+              },
+              icon: const Icon(Icons.share_outlined),
+              tooltip: '分享',
+              iconSize: 22,
+            ),
             if (!isLandscape)
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),

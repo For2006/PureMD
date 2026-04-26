@@ -45,7 +45,13 @@ class _MarkdownGuideScreenState extends ConsumerState<MarkdownGuideScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          onPressed: () => context.go('/settings'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/settings');
+            }
+          },
           icon: const Icon(Icons.arrow_back),
           iconSize: 22,
         ),

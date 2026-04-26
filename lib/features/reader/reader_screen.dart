@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../models/markdown_file.dart';
 import '../editor/editor_provider.dart';
 import '../settings/settings_provider.dart';
 import 'reader_provider.dart';
 import 'widgets/markdown_renderer.dart';
+import 'widgets/export_bottom_sheet.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
   const ReaderScreen({super.key});
@@ -405,6 +405,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             onPressed: () => context.go('/settings'),
             icon: const Icon(Icons.settings_outlined),
             tooltip: '设置',
+            iconSize: 22,
+          ),
+          IconButton(
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              showModalBottomSheet(
+                context: context,
+                showDragHandle: true,
+                builder: (ctx) => const ExportBottomSheet(),
+              );
+            },
+            icon: const Icon(Icons.ios_share_outlined),
+            tooltip: '分享与导出',
             iconSize: 22,
           ),
         ],

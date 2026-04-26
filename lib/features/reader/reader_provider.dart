@@ -5,6 +5,7 @@ import '../../services/preset_document_service.dart';
 import '../../services/file_service.dart';
 import '../../models/markdown_file.dart';
 import '../file_browser/file_browser_provider.dart';
+import '../home_widgets/home_widget_provider.dart';
 
 final currentFileProvider = StateNotifierProvider<ReaderNotifier, AsyncValue<MarkdownFile?>>((ref) {
   return ReaderNotifier(ref);
@@ -16,7 +17,7 @@ final scrollPositionProvider = StateProvider<double>((ref) => 0.0);
 class ReaderNotifier extends StateNotifier<AsyncValue<MarkdownFile?>> {
   final Ref _ref;
 
-  ReaderNotifier(this._ref) : super(const AsyncValue.loading()) {
+  ReaderNotifier(this._ref) : super(const AsyncValue.data(null)) {
     _init();
   }
 
@@ -55,8 +56,22 @@ class ReaderNotifier extends StateNotifier<AsyncValue<MarkdownFile?>> {
             displayName: name,
             contentPreview: content.length > 100 ? content.substring(0, 100) : content,
           );
+      // Update home widget with latest note info
+      final widgetService = _ref.read(homeWidgetProvider);
+      widgetService.updateKeyInfoCard(
+        title: name,
+        snippet: content.length > 80 ? content.substring(0, 80) : content,
+      );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Update content in-memory without disk read (called from editor on save).
+  void updateContent(String newContent) {
+    final current = state.valueOrNull;
+    if (current != null) {
+      state = AsyncValue.data(current.copyWith(content: newContent));
     }
   }
 

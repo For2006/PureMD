@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class MarkdownRenderer extends ConsumerWidget {
+class MarkdownRenderer extends StatelessWidget {
   final String data;
   final double? fontSize;
   final VoidCallback? onLinkTap;
@@ -18,7 +17,7 @@ class MarkdownRenderer extends ConsumerWidget {
   static final Map<_MarkdownStyleKey, MarkdownStyleSheet> _styleCache = {};
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final effectiveFontSize = fontSize ?? theme.textTheme.bodyLarge?.fontSize ?? 16.0;

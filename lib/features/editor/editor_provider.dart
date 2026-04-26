@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/md_block.dart';
 import '../../core/utils/markdown_utils.dart';
 import '../../services/file_service.dart';
+import '../home_widgets/home_widget_provider.dart';
+import '../reader/reader_provider.dart';
 
 class EditorState {
   final String filePath;
@@ -12,7 +14,10 @@ class EditorState {
   final bool isPreviewVisible;
   final String? errorMessage;
 
-  const EditorState({
+  // Transient cache — avoids re-serializing on repeated content/isModified access
+  String? _cachedContent;
+
+  EditorState({
     this.filePath = '',
     this.blocks = const [],
     this.originalContent = '',
@@ -20,7 +25,7 @@ class EditorState {
     this.errorMessage,
   });
 
-  String get content => MarkdownUtils.serializeBlocks(blocks);
+  String get content => _cachedContent ??= MarkdownUtils.serializeBlocks(blocks);
   bool get isModified => content != originalContent;
 
   EditorState copyWith({
@@ -31,27 +36,33 @@ class EditorState {
     String? errorMessage,
     bool clearError = false,
   }) {
-    return EditorState(
+    final result = EditorState(
       filePath: filePath ?? this.filePath,
       blocks: blocks ?? this.blocks,
       originalContent: originalContent ?? this.originalContent,
       isPreviewVisible: isPreviewVisible ?? this.isPreviewVisible,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
+    // Preserve cache when blocks haven't changed
+    if (blocks == null) {
+      result._cachedContent = _cachedContent;
+    }
+    return result;
   }
 }
 
 final editorProvider = StateNotifierProvider<EditorNotifier, EditorState>((ref) {
-  return EditorNotifier();
+  return EditorNotifier(ref);
 });
 
 class EditorNotifier extends StateNotifier<EditorState> {
+  final Ref _ref;
   Timer? _autoSaveTimer;
   int _idCounter = 0;
 
   String _nextBlockId() => 'b${++_idCounter}';
 
-  EditorNotifier() : super(const EditorState());
+  EditorNotifier(this._ref) : super(EditorState());
 
   Future<void> loadFile(String path) async {
     try {
@@ -88,6 +99,12 @@ class EditorNotifier extends StateNotifier<EditorState> {
     newBlocks[index] = newBlocks[index].copyWith(content: content);
     state = state.copyWith(blocks: newBlocks);
     _scheduleAutoSave();
+  }
+
+  void updateBlockContentById(String blockId, String content) {
+    final index = state.blocks.indexWhere((b) => b.id == blockId);
+    if (index < 0) return;
+    updateBlockContent(index, content);
   }
 
   void insertBlock(int index, {MDBlockType type = MDBlockType.paragraph, String content = ''}) {
@@ -134,6 +151,7 @@ class EditorNotifier extends StateNotifier<EditorState> {
       await FileService.writeFile(state.filePath, state.content);
       state = state.copyWith(originalContent: state.content);
       _autoSaveTimer?.cancel();
+      _updateWidgets();
       return true;
     } catch (_) {
       return false;
@@ -148,16 +166,32 @@ class EditorNotifier extends StateNotifier<EditorState> {
         originalContent: state.content,
       );
       _autoSaveTimer?.cancel();
+      _updateWidgets();
       return true;
     } catch (_) {
       return false;
     }
   }
 
+  void _updateWidgets() {
+    final name = FileService.getFileName(state.filePath);
+    final c = state.content;
+    final snippet = c.length > 80 ? c.substring(0, 80) : c;
+    _ref.read(homeWidgetProvider).updateKeyInfoCard(
+          title: name,
+          snippet: snippet,
+        );
+    // Update reader state in-memory instead of reading from disk
+    final currentFile = _ref.read(currentFileProvider).valueOrNull;
+    if (currentFile != null && currentFile.path == state.filePath) {
+      _ref.read(currentFileProvider.notifier).updateContent(c);
+    }
+  }
+
   void _scheduleAutoSave() {
     _autoSaveTimer?.cancel();
     _autoSaveTimer = Timer(const Duration(seconds: 5), () {
-      if (state.isModified && state.filePath.isNotEmpty) {
+      if (state.filePath.isNotEmpty && state.isModified) {
         saveFile();
       }
     });

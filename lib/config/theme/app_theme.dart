@@ -10,6 +10,10 @@ class AppTheme {
 
   static final Map<_ThemeCacheKey, ThemeData> _cache = {};
 
+  // Cache Google Fonts TextTheme globally (fonts won't change at runtime)
+  static TextTheme? _cachedLightTextTheme;
+  static TextTheme? _cachedDarkTextTheme;
+
   static ThemeData buildTheme(
     AppThemeVariant variant, {
     String? fontFamily,
@@ -148,9 +152,13 @@ class AppTheme {
   }) {
     TextTheme base;
     try {
-      base = brightness == Brightness.light
-          ? GoogleFonts.notoSansScTextTheme()
-          : GoogleFonts.notoSansScTextTheme(ThemeData.dark().textTheme);
+      if (brightness == Brightness.light) {
+        _cachedLightTextTheme ??= GoogleFonts.notoSansScTextTheme();
+        base = _cachedLightTextTheme!;
+      } else {
+        _cachedDarkTextTheme ??= GoogleFonts.notoSansScTextTheme(ThemeData.dark().textTheme);
+        base = _cachedDarkTextTheme!;
+      }
     } catch (_) {
       base = ThemeData(brightness: brightness).textTheme;
     }

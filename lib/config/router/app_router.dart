@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/reader/reader_screen.dart';
@@ -6,7 +7,10 @@ import '../../features/file_browser/file_browser_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/guide/guide_screen.dart';
 
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouter = GoRouter(
+  navigatorKey: _rootNavigatorKey,
   initialLocation: '/',
   routes: [
     GoRoute(

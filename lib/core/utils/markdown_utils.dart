@@ -131,12 +131,10 @@ class MarkdownUtils {
     final hasValidSelection = selection.start >= 0 && selection.end >= 0 &&
         selection.start <= controller.text.length && selection.end <= controller.text.length;
     final selectedText = hasValidSelection ? selection.textInside(controller.text) : '';
-    final prefix = '```\n';
-    final suffix = '\n```';
-    if (selectedText.isNotEmpty && !selectedText.contains('\n')) {
-      wrapSelection(controller, prefix: '$prefix$selectedText', suffix: suffix);
+    if (selectedText.isNotEmpty) {
+      wrapSelection(controller, prefix: '```\n', suffix: '\n```');
     } else {
-      wrapSelection(controller, prefix: prefix, suffix: suffix);
+      wrapSelection(controller, prefix: '```\n', suffix: '\n```');
     }
   }
 
@@ -256,9 +254,15 @@ class MarkdownUtils {
         continue;
       }
 
-      final numMatch = RegExp(r'^\d+\. ').matchAsPrefix(line);
+      final numMatch = RegExp(r'^(\d+)\. ').matchAsPrefix(line);
       if (numMatch != null) {
-        blocks.add(MDBlock(id: id(), type: MDBlockType.numberedList, content: line.substring(numMatch.end)));
+        final number = int.tryParse(numMatch.group(1)!) ?? 1;
+        blocks.add(MDBlock(
+          id: id(),
+          type: MDBlockType.numberedList,
+          content: line.substring(numMatch.end),
+          listNumber: number,
+        ));
         i++;
         continue;
       }
@@ -305,7 +309,7 @@ class MarkdownUtils {
         case MDBlockType.bulletList:
           return '- ${block.content.replaceAll('\n', ' ')}';
         case MDBlockType.numberedList:
-          return '1. ${block.content.replaceAll('\n', ' ')}';
+          return '${block.listNumber}. ${block.content.replaceAll('\n', ' ')}';
         case MDBlockType.todo: {
           final checkbox = block.isChecked ? '[x]' : '[ ]';
           return '- $checkbox ${block.content.replaceAll('\n', ' ')}';

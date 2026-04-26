@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,12 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
   final Map<String, TextEditingController> _controllers = {};
   final Map<String, FocusNode> _focusNodes = {};
   int _focusedIndex = -1;
+  List<MDBlock> _lastBlocks = const [];
+
+  // Debounce pending content changes — batch keystrokes before syncing to provider
+  final Map<String, String> _pendingUpdates = {};
+  Timer? _flushTimer;
+  Timer? _forceFlushTimer;
 
   TextEditingController? get focusedController {
     if (_focusedIndex < 0) return null;
@@ -26,6 +33,8 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
 
   @override
   void dispose() {
+    _flushTimer?.cancel();
+    _forceFlushTimer?.cancel();
     for (final c in _controllers.values) {
       c.dispose();
     }
@@ -60,7 +69,33 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
   }
 
   void _onTextChanged(int index, String text) {
-    ref.read(editorProvider.notifier).updateBlockContent(index, text);
+    // Batch keystrokes — only sync to provider after 300ms of inactivity
+    final blockId = ref.read(editorProvider).blocks[index].id;
+    _pendingUpdates[blockId] = text;
+
+    _flushTimer?.cancel();
+    _flushTimer = Timer(const Duration(milliseconds: 300), _flushUpdates);
+
+    // Safety net: force flush at least every 2s during continuous typing
+    _forceFlushTimer ??= Timer(const Duration(seconds: 2), _flushUpdates);
+  }
+
+  /// Flush pending content changes to the provider now.
+  void _flushUpdates() {
+    _flushTimer?.cancel();
+    _forceFlushTimer?.cancel();
+    _forceFlushTimer = null;
+    if (_pendingUpdates.isEmpty) return;
+    final notifier = ref.read(editorProvider.notifier);
+    for (final entry in _pendingUpdates.entries) {
+      notifier.updateBlockContentById(entry.key, entry.value);
+    }
+    _pendingUpdates.clear();
+  }
+
+  /// Public flush — called by EditorScreen before save/preview/back navigation.
+  void flushUpdates() {
+    _flushUpdates();
   }
 
   void _onDelete(int index) {
@@ -125,6 +160,7 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (ctx) => _BlockTypeSelector(
         currentType: currentType,
         onSelect: (type) {
@@ -142,12 +178,15 @@ class BlockEditorState extends ConsumerState<BlockEditor> {
   Widget build(BuildContext context) {
     final blocks = ref.watch(editorProvider.select((s) => s.blocks));
 
-    // Clean up orphaned controllers/nodes
-    final activeIds = blocks.map((b) => b.id).toSet();
-    _controllers.keys.where((id) => !activeIds.contains(id)).toList().forEach((id) {
-      _controllers.remove(id)?.dispose();
-      _focusNodes.remove(id)?.dispose();
-    });
+    // Only clean up orphaned controllers/nodes on structural changes (insert/delete)
+    if (blocks.length != _lastBlocks.length) {
+      final activeIds = blocks.map((b) => b.id).toSet();
+      _controllers.keys.where((id) => !activeIds.contains(id)).toList().forEach((id) {
+        _controllers.remove(id)?.dispose();
+        _focusNodes.remove(id)?.dispose();
+      });
+      _lastBlocks = blocks;
+    }
 
     return GestureDetector(
       onTap: () {
@@ -349,7 +388,7 @@ class _BlockWidget extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          const SizedBox(width: 28),
+          _buildDragHandle(colorScheme),
           Expanded(
             child: Container(
               height: 1,
@@ -552,25 +591,45 @@ class _BlockTypeSelector extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.6,
+      ),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 20, bottom: 12),
-            child: Text(
-              '切换块类型',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            width: 32,
+            height: 4,
+            decoration: BoxDecoration(
+              color: colorScheme.outlineVariant,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          ..._buildOptions(context, colorScheme),
+          Padding(
+            padding: const EdgeInsets.only(left: 20, bottom: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '切换块类型',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: _buildOptions(context, colorScheme),
+              ),
+            ),
+          ),
         ],
       ),
     );
